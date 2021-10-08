@@ -1,0 +1,27 @@
+{
+  "name": "@tigon/state-manager",
+  "version": "0.0.1",
+  "description": "Simple state manager",
+  "scripts": {
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haraso/tigon-state-manager.git"
+  },
+  "keywords": [
+    "state",
+    "manager",
+    "tigon",
+    "state-manager"
+  ],
+  "author": "Hragyil Péter (Hápi)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/haraso/tigon-state-manager/issues"
+  },
+  "homepage": "https://github.com/haraso/tigon-state-manager#readme",
+  "devDependencies": {
+    "typescript": "^4.4.3"
+  }
+}
