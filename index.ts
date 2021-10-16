@@ -12,21 +12,19 @@ export type IStore<S> = {
   (): StoreHandler<S>;
   subscribe(listener: (state: S, setter: Setter<S>) => void): () => void;
   from<P>(parent: IStore<P>): {
-    map(map: (parentState: P, currentState: S)=>S): IStore<S>
+    map(map: (parentState: P, currentState: S) => S): IStore<S>
   }
   to<P>(parent: IStore<P>): {
-    map(map: (currentState: S, parentState: P)=>P): IStore<S>
+    map(map: (currentState: S, parentState: P) => P): IStore<S>
   }
 }
 
-export type StoreValue<T extends IStore<any>> = T extends IStore<infer V> ? V : any;
-
-function createSetter<S>(getStore: ()=>{listeners: Function[], handler: StoreHandler<S>}) {
+function createSetter<S>(getStore: () => { listeners: Function[], handler: StoreHandler<S> }) {
   function set(value: S | ((value: S) => S)) {
     const store = getStore();
     if (typeof value === 'function') {
       value = (value as Function)(store.handler[0]);
-      if(value === undefined) value = store.handler[0];
+      if (value === undefined) value = store.handler[0];
     }
     store.handler[0] = value as S;
     store.listeners.forEach((cb) => cb(...store.handler));
@@ -39,28 +37,28 @@ function createSetter<S>(getStore: ()=>{listeners: Function[], handler: StoreHan
   return set;
 }
 
-function createParentSetter<P, S>(parent: IStore<P>, state: IStore<S>, map: (currentState: S, parentState: P)=>P) {
+function createParentSetter<P, S>(parent: IStore<P>, state: IStore<S>, map: (currentState: S, parentState: P) => P, originalSetter: Setter<S>) {
   function set(value: S | ((value: S) => S)) {
     const [currentState] = state();
     const [parentState, parentSetter] = parent();
     if (typeof value === 'function') {
       value = (value as Function)(currentState);
     }
-    state.handler[0] = value as S;
     parentSetter(map(value as S, parentState));
+    originalSetter(value as S);
   }
   set.async = async function async(cb: (value: S) => Promise<S>) {
     const [currentState] = state();
     const [parentState, parentSetter] = parent();
     const value = await cb(currentState);
-    state.handler[0] = value;
     parentSetter(map(value, parentState));
+    originalSetter(value as S);
   }
   return set;
 }
 
 export function Store<S>(initialState?: S extends Object ? Partial<S> : S) {
-  const setter: Setter<S> = createSetter<S>(()=>store);
+  const setter: Setter<S> = createSetter<S>(() => store);
   const fromStores: IStore<any>[] = [];
   const store = {
     listeners: [] as Function[],
@@ -90,30 +88,30 @@ export function Store<S>(initialState?: S extends Object ? Partial<S> : S) {
   }
 
   storeHandler.from = <P>(parent: IStore<P>) => {
-    if(fromStores.indexOf(parent) > -1) throw {
+    if (fromStores.indexOf(parent) > -1) throw {
       message: ".from() called twice with a same store",
       store: parent
     }
     fromStores.push(parent);
     return {
-      map(map: (parentState: P, currentState: S)=>S) {
-        parent.subscribe(()=>{
+      map(map: (parentState: P, currentState: S) => S) {
+        parent.subscribe(() => {
           setter(map(parent.handler[0], store.handler[0]))
         })
-        if(store.handler[0] !== undefined) store.handler[0] = map(parent.handler[0], store.handler[0]);
+        if (store.handler[0] !== undefined) store.handler[0] = map(parent.handler[0], store.handler[0]);
         return storeHandler;
       }
     }
   }
 
   storeHandler.to = <P>(parent: IStore<P>) => {
-    if(fromStores.indexOf(parent) === -1) throw {
+    if (fromStores.indexOf(parent) === -1) throw {
       message: ".to() cannot call without .from()",
       store: parent
     }
     return {
-      map(map: (currentState: S, parentState: P)=>P) {
-        store.handler[1] = createParentSetter(parent, storeHandler, map)
+      map(map: (currentState: S, parentState: P) => P) {
+        store.handler[1] = createParentSetter(parent, storeHandler, map, store.handler[1]);
         return storeHandler;
       }
     }
@@ -122,14 +120,14 @@ export function Store<S>(initialState?: S extends Object ? Partial<S> : S) {
   return storeHandler;
 }
 
-const x = Store({x: 0})
-const xy = Store<{x: number, y: number}>({y: 0})
+const x = Store({ x: 0 })
+const xy = Store<{ x: number, y: number }>({ y: 0 })
 
-.from(x)
-.map(({x},{y})=>({x,y}))
+  .from(x)
+  .map(({ x }, { y }) => ({ x, y }))
 
-.to(x)
-.map(({x}, parent)=>{
-  parent.x = x;
-  return parent;
-});
+  .to(x)
+  .map(({ x }, parent) => {
+    parent.x = x;
+    return parent;
+  });
