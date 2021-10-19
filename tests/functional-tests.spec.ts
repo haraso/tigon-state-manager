@@ -66,6 +66,8 @@ describe("functional tests", () => {
     const [, setHello] = helloStore();
     setHello("Hello World");
 
+    expect(callback).toHaveBeenCalledTimes(1);
+
     const args = callback.mock.calls[0];
     expect(args).toHaveLength(2);
 

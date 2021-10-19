@@ -19,6 +19,13 @@ export type IStore<S> = {
   }
 }
 
+export class InheritError extends Error {
+  constructor(message: string, public parent: IStore<any>) {
+    super(message);
+    Object.setPrototypeOf(this, InheritError.prototype);
+  }
+}
+
 function createSetter<S>(getStore: () => { listeners: Function[], handler: StoreHandler<S> }) {
   function set(value: S | ((value: S) => S)) {
     const store = getStore();
@@ -37,21 +44,25 @@ function createSetter<S>(getStore: () => { listeners: Function[], handler: Store
   return set;
 }
 
-function createParentSetter<P, S>(parent: IStore<P>, state: IStore<S>, map: (currentState: S, parentState: P) => P, originalSetter: Setter<S>) {
+function createParentSetter<P, S>(parent: IStore<P>, state: IStore<S>, map: (currentState: S, parentState: P) => P, originalSetter: Setter<S>, parentIsSetting: { skipMapFrom: boolean }) {
   function set(value: S | ((value: S) => S)) {
     const [currentState] = state();
     const [parentState, parentSetter] = parent();
     if (typeof value === 'function') {
       value = (value as Function)(currentState);
     }
+    parentIsSetting.skipMapFrom = true;
     parentSetter(map(value as S, parentState));
+    parentIsSetting.skipMapFrom = false;
     originalSetter(value as S);
   }
   set.async = async function async(cb: (value: S) => Promise<S>) {
     const [currentState] = state();
     const [parentState, parentSetter] = parent();
     const value = await cb(currentState);
+    parentIsSetting.skipMapFrom = true;
     parentSetter(map(value, parentState));
+    parentIsSetting.skipMapFrom = false;
     originalSetter(value as S);
   }
   return set;
@@ -60,6 +71,8 @@ function createParentSetter<P, S>(parent: IStore<P>, state: IStore<S>, map: (cur
 export function Store<S>(initialState?: S extends Object ? Partial<S> : S) {
   const setter: Setter<S> = createSetter<S>(() => store);
   const fromStores: IStore<any>[] = [];
+  const toStores: IStore<any>[] = [];
+  const parentIsSetting: { skipMapFrom: boolean } = { skipMapFrom: false };
   const store = {
     listeners: [] as Function[],
     handler: [
@@ -88,14 +101,15 @@ export function Store<S>(initialState?: S extends Object ? Partial<S> : S) {
   }
 
   storeHandler.from = <P>(parent: IStore<P>) => {
-    if (fromStores.indexOf(parent) > -1) throw {
-      message: ".from() called twice with a same store",
-      store: parent
-    }
+    if (fromStores.indexOf(parent) > -1) throw new InheritError(
+      ".from() called twice with a same store",
+      parent
+    )
     fromStores.push(parent);
     return {
       map(map: (parentState: P, currentState: S) => S) {
         parent.subscribe(() => {
+          if (parentIsSetting.skipMapFrom) return;
           setter(map(parent.handler[0], store.handler[0]))
         })
         if (store.handler[0] !== undefined) store.handler[0] = map(parent.handler[0], store.handler[0]);
@@ -105,13 +119,14 @@ export function Store<S>(initialState?: S extends Object ? Partial<S> : S) {
   }
 
   storeHandler.to = <P>(parent: IStore<P>) => {
-    if (fromStores.indexOf(parent) === -1) throw {
-      message: ".to() cannot call without .from()",
-      store: parent
-    }
+    if (toStores.indexOf(parent) > -1) throw new InheritError(
+      ".to() called twice with a same store",
+      parent
+    )
+    toStores.push(parent);
     return {
       map(map: (currentState: S, parentState: P) => P) {
-        store.handler[1] = createParentSetter(parent, storeHandler, map, store.handler[1]);
+        store.handler[1] = createParentSetter(parent, storeHandler, map, store.handler[1], parentIsSetting);
         return storeHandler;
       }
     }
@@ -119,15 +134,3 @@ export function Store<S>(initialState?: S extends Object ? Partial<S> : S) {
 
   return storeHandler;
 }
-
-const x = Store({ x: 0 })
-const xy = Store<{ x: number, y: number }>({ y: 0 })
-
-  .from(x)
-  .map(({ x }, { y }) => ({ x, y }))
-
-  .to(x)
-  .map(({ x }, parent) => {
-    parent.x = x;
-    return parent;
-  });

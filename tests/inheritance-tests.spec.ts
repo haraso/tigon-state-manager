@@ -1,4 +1,4 @@
-import { Store, StateType } from '../index';
+import { Store, StateType, InheritError } from '../index';
 
 function getAsyncValue<T>(value: T, timeout: number): Promise<T> {
   return new Promise((resolve) => {
@@ -46,7 +46,7 @@ describe("inheritance tests", () => {
     
     const [,setXY] = xyStore();
     setXY({x: 100, y: 100});
-    expect(mapFromCallback).toBeCalledTimes(2);
+    expect(mapFromCallback).toBeCalledTimes(1);
     expect(mapToCallback).toBeCalledTimes(1);
     
     const args = mapToCallback.mock.calls[0];
@@ -66,7 +66,7 @@ describe("inheritance tests", () => {
     const xStoreMapCallback = jest.fn(({x}, {y})=>({x,y}));
     const yStoreMapCallback = jest.fn(({y}, {x})=>({x,y}));
 
-    const yStore = Store({y: 0})
+    const yStore = Store({y: 0});
     const xStore = Store({x: 0});
     const xyStore = Store<StateType<typeof xStore> & StateType<typeof yStore>>({})
     .from(xStore)
@@ -93,7 +93,7 @@ describe("inheritance tests", () => {
     expect(xy).toEqual({x: 0, y: 0});
   });
 
-  test('multi inheritance use from to', () => {
+  test('multi inheritance use from and to', () => {
     const xStoreFromMapCallback = jest.fn(({x}, {y})=>({x,y}));
     const xStoreToMapCallback = jest.fn(({x}, parent)=>{
       parent.x = x;
@@ -105,7 +105,7 @@ describe("inheritance tests", () => {
       return parent;
     });
 
-    const yStore = Store({y: 0})
+    const yStore = Store({y: 0});
     const xStore = Store({x: 0});
     const xyStore = Store<StateType<typeof xStore> & StateType<typeof yStore>>({})
     .from(xStore)
@@ -118,13 +118,13 @@ describe("inheritance tests", () => {
     .map(yStoreToMapCallback);
     
     expect(xStoreFromMapCallback).toBeCalledTimes(1);
-    expect(xStoreFromMapCallback).toBeCalledTimes(1);
+    expect(yStoreFromMapCallback).toBeCalledTimes(1);
 
     const [,setXY] = xyStore();
     setXY({x: 1, y: 2});
 
-    expect(xStoreFromMapCallback).toBeCalledTimes(2);
-    expect(yStoreFromMapCallback).toBeCalledTimes(2);
+    expect(xStoreFromMapCallback).toBeCalledTimes(1);
+    expect(yStoreFromMapCallback).toBeCalledTimes(1);
 
     expect(xStoreToMapCallback).toBeCalledTimes(1);
     expect(yStoreToMapCallback).toBeCalledTimes(1);
@@ -148,6 +148,116 @@ describe("inheritance tests", () => {
 
     const [y] = yStore();
     expect(y).toEqual({y: 2});
+  });
+
+  test('multi inheritance use from and to subscribe to child', () => {
+    const subscribeCallback = jest.fn();
+
+    const yStore = Store({y: 0});
+    const xStore = Store({x: 0});
+    const xyStore = Store<StateType<typeof xStore> & StateType<typeof yStore>>({})
+    .from(xStore)
+    .map(({x}, {y})=>({x,y}))
+    .to(xStore)
+    .map(({x}, parent)=>{
+      parent.x = x;
+      return parent;
+    })
+    .from(yStore)
+    .map(({y}, {x})=>({x,y}))
+    .to(yStore)
+    .map(({y}, parent)=>{
+      parent.y = y;
+      return parent;
+    });
+    
+    xyStore.subscribe(subscribeCallback)
+
+    const [,setXY] = xyStore();
+    setXY({x: 1, y: 2});
+
+    expect(subscribeCallback).toHaveBeenCalledTimes(1);
+
+    const [x] = xStore();
+    expect(x).toEqual({x: 1});
+
+    const [y] = yStore();
+    expect(y).toEqual({y: 2});
+  });
+
+  test('multi inheritance use from and to subscribe to parents', () => {
+    const subscribeXCallback = jest.fn();
+    const subscribeYCallback = jest.fn();
+
+    const yStore = Store({y: 0});
+    yStore.subscribe(subscribeYCallback);
+
+    const xStore = Store({x: 0});
+    xStore.subscribe(subscribeXCallback);
+    
+    const xyStore = Store<StateType<typeof xStore> & StateType<typeof yStore>>({})
+    .from(xStore)
+    .map(({x}, {y})=>({x,y}))
+    .to(xStore)
+    .map(({x}, parent)=>{
+      parent.x = x;
+      return parent;
+    })
+    .from(yStore)
+    .map(({y}, {x})=>({x,y}))
+    .to(yStore)
+    .map(({y}, parent)=>{
+      parent.y = y;
+      return parent;
+    });
+    
+    const [,setXY] = xyStore();
+    setXY({x: 1, y: 2});
+
+    expect(subscribeXCallback).toHaveBeenCalledTimes(1);
+    expect(subscribeYCallback).toHaveBeenCalledTimes(1);
+
+    const [x] = xStore();
+    expect(x).toEqual({x: 1});
+
+    const [y] = yStore();
+    expect(y).toEqual({y: 2});
+  });
+
+  test('multi inheritance use from twice error', () => {
+    const xStore = Store({x: 0});
+    try {
+      Store<StateType<typeof xStore>>({})
+      .from(xStore)
+      .map(({x})=>({x}))
+      .from(xStore)
+      .map(({x})=>({x}))
+    } catch (error) {
+      expect(error).toBeInstanceOf(InheritError);
+      if(error instanceof InheritError) {
+        expect(error.message).toEqual(".from() called twice with a same store");
+        expect(error.parent).toEqual(xStore);
+      }
+    }
+    
+  });
+
+  test('multi inheritance use to twice error', () => {
+    const xStore = Store({x: 0});
+    try {
+      Store<StateType<typeof xStore>>({})
+      .to(xStore)
+      .map(({x})=>({x}))
+      .to(xStore)
+      .map(({x})=>({x}))
+    } catch (error) {
+      expect(error).toBeInstanceOf(InheritError);
+      if(error instanceof InheritError) {
+        expect(error.message).toEqual(".to() called twice with a same store");
+        expect(error.parent).toEqual(xStore);
+      }
+    }
+    
   });
 
 });
