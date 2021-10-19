@@ -1,11 +1,5 @@
 import { Store, StateType, InheritError } from '../index';
 
-function getAsyncValue<T>(value: T, timeout: number): Promise<T> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(value), timeout);
-  });
-}
-
 describe("inheritance tests", () => {
 
   test('simple inheritance use from', () => {
