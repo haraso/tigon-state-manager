@@ -3,6 +3,8 @@
   "version": "0.0.1",
   "description": "Simple state manager",
   "scripts": {
+    "prepublish": "npm run build",
+    "publish": "npm publish --access public",
     "build": "tsc",
     "test": "jest"
   },
