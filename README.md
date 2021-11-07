@@ -4,6 +4,9 @@ This is a simple and lightweight state manager.
 
 ## How to use
 
+- [Tigon React Hooks](https://www.npmjs.com/package/@tigon/react-hooks) If you want to use with react
+- [Tigon Utils](https://www.npmjs.com/package/@tigon/utils)
+
 ### Create store:
 
 - Create store with string
@@ -196,6 +199,60 @@ const unsubscribe = userNameStore.subscribe((currentState, setState) => {
 ...
 
 unsubscribe();
+```
+
+---
+---
+
+### Subscribe store changes with detector function:
+- Detector functions always return an array of dependencies. The store is compare that dependency array with the previous, and if it is different, then the store calls the subscribed functions.
+```ts
+import { Store } from "@tigon/state-manager";
+
+type UserDetails = { userName: string, email: string };
+
+const userDetailsStore = Store<UserDetails>({
+    userName: "user",
+    email: "user@email.com"
+});
+
+...
+
+const unsubscribe = userDetailsStore.detect(({userName}) => [userName])
+.subscribe(({userName}, setState) => {
+
+// do something if userName has been changed
+
+});
+```
+- You can define a default detector function. It's important if you define a sub-store because without the detector function, every time when the parent store has been changed, the child store will change as well.
+- The default detector function can be overridden locally if you use `detect(...).subscribe(...)` functions.
+```ts
+import { Store } from "@tigon/state-manager";
+
+type UserDetails = { userName: string, email: string };
+
+const rootStore = Store<{userDetails: UserDetails, time: Date}>({
+    userDetails: {
+        userName: "user",
+        email: "user@email.com"
+    },
+    time: new Date(),
+})
+
+const userDetailsStore = Store<UserDetails>(
+    {
+        userName: "user",
+        email: "user@email.com"
+    },
+    ({userName, email}) => [userName, email]
+)
+.from(rootStore)
+.map((parentState, currentState) => {
+    currentState.userName = parentState.userName;
+    currentState.email = parentState.email;
+    return currentState;
+})
 ```
 
 ---
