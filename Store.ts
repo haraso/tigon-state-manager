@@ -48,7 +48,7 @@ export function Store<S extends Object>(
     ) => void,
     detector?: (state: S) => any[]
   ) => {
-    if (detector) listener = createDetector(listener, detector);
+    if (detector) listener = createDetector(listener, detector, storeHandler.handler);
     store.listeners.push(listener);
     return function unsubscribe() {
       const idx = store.listeners.indexOf(listener);

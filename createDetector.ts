@@ -1,4 +1,4 @@
-export function createDetector<T extends any[], R>(cb: (...args: T) => R, deps: (...args: T) => any[]) {
+export function createDetector<T extends any[], R>(cb: (...args: T) => R, deps: (...args: T) => any[], defaultArgs: T) {
   function detectorCb(...args: T) {
     const current = deps(...args);
     if (detectorCb.deps.length !== current.length) {
@@ -11,6 +11,6 @@ export function createDetector<T extends any[], R>(cb: (...args: T) => R, deps: 
       return cb(...args);
     }
   }
-  detectorCb.deps = [] as any[];
+  detectorCb.deps = deps(...defaultArgs);
   return detectorCb;
 }
