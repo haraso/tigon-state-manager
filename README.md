@@ -13,7 +13,7 @@ This is a simple and lightweight state manager.
 ```ts
 import { Store } from "@tigon/state-manager";
 
-const userNameStore = Store<String>("Mr. Developer");
+const userNameStore = Store<string>("Mr. Developer");
 ```
 ---
 
@@ -119,7 +119,7 @@ const userDetailsStore = Store({ username: "", email: "" })
 ```ts
 import { Store } from "@tigon/state-manager";
 
-const userNameStore = Store<String>("Mr. User");
+const userNameStore = Store<string>("Mr. User");
 
 ...
 
@@ -134,7 +134,7 @@ console.log(username); //Mr. User
 ```ts
 import { Store } from "@tigon/state-manager";
 
-const userNameStore = Store<String>("Mr. User");
+const userNameStore = Store<string>("Mr. User");
 
 ...
 
@@ -150,7 +150,7 @@ console.log(username); //Dr. User
 ```ts
 import { Store } from "@tigon/state-manager";
 
-const userNameStore = Store<String>("Mr. User");
+const userNameStore = Store<string>("Mr. User");
 
 ...
 
@@ -169,7 +169,7 @@ console.log(username); //Dr. User
 ```ts
 import { Store } from "@tigon/state-manager";
 
-const userNameStore = Store<String>("Mr. User");
+const userNameStore = Store<string>("Mr. User");
 
 ...
 
@@ -186,7 +186,7 @@ setUserName.async(async (state) => `${state} ${await fetchUserLastName(state)}`)
 ```ts
 import { Store } from "@tigon/state-manager";
 
-const userNameStore = Store<String>("Mr. User");
+const userNameStore = Store<string>("Mr. User");
 
 ...
 
@@ -248,11 +248,7 @@ const userDetailsStore = Store<UserDetails>(
     ({userName, email}) => [userName, email]
 )
 .from(rootStore)
-.map((parentState, currentState) => {
-    currentState.userName = parentState.userName;
-    currentState.email = parentState.email;
-    return currentState;
-})
+.map((parentState) => parentState.userDetails)
 ```
 
 ---
